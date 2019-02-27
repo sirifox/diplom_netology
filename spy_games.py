@@ -2,12 +2,14 @@ import requests
 import time
 import json
 import os
+from urllib.error import HTTPError
 
 
 class VkUser:
 
     vk = 'https://api.vk.com/method/'
-    token = 'ed1271af9e8883f7a7c2cefbfddfcbc61563029666c487b2f71a5227cce0d1b533c4af4c5b888633c06ae'
+    with open(os.path.join('token.json'), encoding='utf-8') as file:
+        token = json.load(file)['token']
 
     def __init__(self, us_id):
         self.us_id = us_id
@@ -16,58 +18,60 @@ class VkUser:
             'access_token': self.token
         }
 
-    def __and__(self, other):
-        us_params = self.params
-        us_params.update({'target_uid': other.us_id})
-        mut_friends = requests.post(self.vk + 'friends.getMutual', params=us_params).json()['response']
-        user_list = []
-        for friend in mut_friends:
-            user_list.append(str(VkUser(friend)))
-        return user_list
-
     def __str__(self):
         return 'https://vk.com/id' + str(self.us_id)
 
+    def vk_request(self, method, user_params):
+        try:
+            result = requests.post(self.vk + method, params=user_params)
+            result.raise_for_status()
+            if result.json()['error']['error_code'] == 6:
+                time.sleep(0.3)
+                return self.vk_request(method, user_params)
+        except KeyError:
+            return result.json()
+        except HTTPError:
+            return self.vk_request(method, user_params)
+
     def get_users(self):
-        us_params = self.params
-        us_params.update({'fields': 'counters'})
-        return requests.post(self.vk + 'users.get', params=us_params).json()
+        user_params = self.params.copy()
+        user_params.update({'fields': 'counters'})
+        return self.vk_request('users.get', user_params)
 
     def get_friends(self):
-        return requests.post(self.vk + 'friends.get', params=self.params).json()
+        return self.vk_request('friends.get', self.params)
 
     def get_groups(self, extended='0'):
-        us_params = self.params
-        us_params.update({'extended': extended, 'fields': 'members_count, gid'})
-        return requests.post(self.vk + 'groups.get', params=self.params).json()
+        user_params = self.params.copy()
+        user_params.update({'extended': extended, 'fields': 'members_count, gid'})
+        return self.vk_request('groups.get', user_params)
 
-    def main_get(self):
+    def get_common_groups(self):
         friends = self.get_friends()['response']['items']
         friends_str = ', '.join([str(i) for i in friends])
         groups = self.get_groups('1')['response']['items']
         pop_list = []
-        us_params = self.params
-        us_params.update({'group_id': '', 'user_ids': friends_str})
+        user_params = self.params.copy()
+        user_params.update({'group_id': '', 'user_ids': friends_str, 'extended': '1'})
         for index, group in enumerate(groups):
-            us_params['group_id'] = group['id']
-            tmp = requests.post(self.vk + 'groups.isMember', params=self.params).json()
+            user_params['group_id'] = group['id']
+            tmp = self.vk_request('groups.isMember', user_params)
             for elem in tmp['response']:
                 if elem['member'] == 1:
-                    pop_list.append(index)
+                    pop_list.append(group['id'])
                     break
-            time.sleep(0.3)
-            print('Обработана группа {} из {}'.format(str(index + 1), str(len(groups))))
-
-        for index, elem in enumerate(pop_list):
-            groups.pop(elem - index)
-        groups_list =[]
-
+            print('Обработана группа {} из {}'.format(index + 1, str(len(groups))))
+        non_unique_groups_set = set(pop_list)
+        groups = [g for g in groups if g['id'] not in non_unique_groups_set]
+        groups_list = []
         for group in groups:
-            groups_list.append({'name': group['name'],'gid': group['id'],'members_count': group['members_count']})
-        json.dump(groups_list, open(os.path.join('C:\\', 'Users', 'Артём', 'Desktop', 'test.json'), 'w'))
+            groups_list.append({'name': group['name'], 'gid': group['id'], 'members_count': group['members_count']})
+
+        with open(os.path.join('test.json'), 'w') as file:
+            json.dump(groups_list, file)
         return 'Готово'
 
 
 user1 = VkUser(171691064)
 
-user1.main_get()
+print(user1.get_common_groups())
