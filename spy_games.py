@@ -44,11 +44,6 @@ class VkUser:
             print('Ошибка HTTP-запроса {}, попыток осталось: {}'.format(str(err.response)[11:14], max_iter))
             return self.vk_request(method, user_params, max_iter-1)
 
-    def get_id(self, user_id):
-        user_params = self.params.copy()
-        user_params.update({'user_ids': user_id, 'screen_name': user_id})
-        return self.vk_request('users.get', user_params)['response'][0]['id']
-
     def get_friends(self):
         user_params = self.params.copy()
         user_params.update({'user_id': self.user_id})
