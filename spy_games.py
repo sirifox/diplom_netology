@@ -29,6 +29,7 @@ class VkUser:
         try:
             if max_iter == 0:
                 print('Превышен лимит ошибочных HTTP-запросов')
+                raise Exception('Превышен лимит ошибочных HTTP-запросов')
             result = requests.post(self.vk + method, params=user_params)
             result.raise_for_status()
             if 'response' in result.json():
