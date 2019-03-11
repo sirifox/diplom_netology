@@ -2,14 +2,13 @@ import requests
 import time
 import json
 import os
-import sys
 from requests import HTTPError
 
 
 class VkUser:
 
     vk = 'https://api.vk.com/method/'
-    with open(os.path.join('C:\\', 'Users', 'Артём', 'Desktop', 'tok.json'), encoding='utf-8') as file:
+    with open(os.path.join('tok.json'), encoding='utf-8') as file:
         token = json.load(file)['token']
     vk_timeout = 0.3
     TOO_MANY_REQUESTS = 6
@@ -29,8 +28,7 @@ class VkUser:
     def vk_request(self, method, user_params, max_iter=20):
         try:
             if max_iter == 0:
-                print('Превышен лимит ошибочных HTTP-запросов, выход из программы')
-                sys.exit()
+                print('Превышен лимит ошибочных HTTP-запросов')
             result = requests.post(self.vk + method, params=user_params)
             result.raise_for_status()
             if 'response' in result.json():
